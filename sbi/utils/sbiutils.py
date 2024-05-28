@@ -992,6 +992,7 @@ def seed_all_backends(seed: Optional[Union[int, Tensor]] = None) -> None:
     """Sets all python, numpy and pytorch seeds."""
 
     # Cast Tensor to int (required by math.random since Python 3.11)
+
     seed = int(torch.randint(1000000, size=(1,))) if seed is None else int(seed)
 
     random.seed(seed)

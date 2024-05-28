@@ -12,6 +12,8 @@ from torch import Tensor
 from tqdm.auto import tqdm
 
 from sbi.utils.sbiutils import seed_all_backends
+from ray.util.joblib import register_ray
+
 
 
 def simulate_in_batches(
@@ -21,6 +23,7 @@ def simulate_in_batches(
     num_workers: int = 1,
     seed: Optional[int] = None,
     show_progress_bars: bool = True,
+    ray_on: bool = False,
 ) -> Tensor:
     r"""
     Return simulations $x$ for parameters $\theta$ conducted batchwise.
@@ -71,10 +74,18 @@ def simulate_in_batches(
                     total=len(batches),
                 )
             ) as _:
-                simulation_outputs: List[Tensor] = Parallel(n_jobs=num_workers)(  # pyright: ignore[reportAssignmentType]
-                    delayed(simulator_seeded)(batch, batch_seed)
-                    for batch, batch_seed in zip(batches, batch_seeds)
-                )
+                if ray_on:
+                    register_ray()
+                    with joblib.parallel_backend("ray"):
+                        simulation_outputs: List[Tensor] = Parallel(n_jobs=num_workers)(  # pyright: ignore[reportAssignmentType]
+                            delayed(simulator_seeded)(batch, batch_seed)
+                            for batch, batch_seed in zip(batches, batch_seeds)
+                        )   
+                else:
+                    simulation_outputs: List[Tensor] = Parallel(n_jobs=num_workers)(  # pyright: ignore[reportAssignmentType]
+                        delayed(simulator_seeded)(batch, batch_seed)
+                        for batch, batch_seed in zip(batches, batch_seeds)
+                    )
         else:
             pbar = tqdm(
                 total=num_sims,

@@ -14,6 +14,7 @@ from torch.distributions import Distribution
 from torch.utils import data
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch.utils.tensorboard.writer import SummaryWriter
+import numpy as np
 
 import sbi.inference
 from sbi.inference.posteriors.base_posterior import NeuralPosterior
@@ -35,6 +36,28 @@ from sbi.utils.user_input_checks import (
     process_simulator,
 )
 
+class CustomDataset(torch.utils.data.Dataset):
+    def __init__(self, theta,x,mask, training_batch_size):
+        self.theta=theta
+        self.x=x
+        self.mask=mask
+        self.num_batches=int(x.shape[0]/training_batch_size)
+        self.indices=np.array(torch.randperm(len(x)))
+        self.indices=self.indices.reshape((self.num_batches, training_batch_size))
+        #print(self.indices.shape," shape indices!!!!!!!")
+
+    def __len__(self):
+        return self.num_batches
+
+    def __getitem__(self, idx):
+        #print(self.indices.shape," shpe indices!!!!!!!")
+        #print(self.data.shape," shape data!!!!!!!")
+        #print(idx," idx!!!!!!!!")
+        #print(self.indices[idx]," indices[idx]!!!!!!!")
+        # return torch.Tensor(self.data[self.indices[idx]][:10]),torch.Tensor(self.data[self.indices[idx]][10:24]),torch.Tensor(self.data[self.indices[idx]][24:])
+        return (torch.Tensor(self.theta[self.indices[idx]]),torch.Tensor(self.x[self.indices[idx]]),torch.Tensor(self.mask[self.indices[idx]]))
+
+
 
 def infer(
     simulator: Callable,
@@ -45,6 +68,7 @@ def infer(
     init_kwargs: Optional[Dict] = None,
     train_kwargs: Optional[Dict] = None,
     build_posterior_kwargs: Optional[Dict] = None,
+    ray_on: bool = False,
 ) -> NeuralPosterior:
     r"""Runs simulation-based inference and returns the posterior.
 
@@ -115,6 +139,7 @@ def infer(
         proposal=prior,
         num_simulations=num_simulations,
         num_workers=num_workers,
+        ray_on=ray_on,
     )
     _ = inference.append_simulations(theta, x).train(**train_kwargs)
     posterior = inference.build_posterior(**build_posterior_kwargs)
@@ -350,23 +375,29 @@ class NeuralInference(ABC):
         # Intentionally use dicts to define the default dataloader args
         # Then, use dataloader_kwargs to override (or add to) any of these defaults
         # https://stackoverflow.com/questions/44784577/in-method-call-args-how-to-override-keyword-argument-of-unpacked-dict
-        train_loader_kwargs = {
-            "batch_size": min(training_batch_size, num_training_examples),
-            "drop_last": True,
-            "sampler": SubsetRandomSampler(self.train_indices.tolist()),
-        }
-        val_loader_kwargs = {
-            "batch_size": min(training_batch_size, num_validation_examples),
-            "shuffle": False,
-            "drop_last": True,
-            "sampler": SubsetRandomSampler(self.val_indices.tolist()),
-        }
-        if dataloader_kwargs is not None:
-            train_loader_kwargs = dict(train_loader_kwargs, **dataloader_kwargs)
-            val_loader_kwargs = dict(val_loader_kwargs, **dataloader_kwargs)
+        # train_loader_kwargs = {
+        #     "batch_size": min(training_batch_size, num_training_examples),
+        #     "drop_last": True,
+        #     "sampler": SubsetRandomSampler(self.train_indices.tolist()),
+        # }
+        # val_loader_kwargs = {
+        #     "batch_size": min(training_batch_size, num_validation_examples),
+        #     "shuffle": False,
+        #     "drop_last": True,
+        #     "sampler": SubsetRandomSampler(self.val_indices.tolist()),
+        # }
+        # if dataloader_kwargs is not None:
+        #     train_loader_kwargs = dict(train_loader_kwargs, **dataloader_kwargs)
+        #     val_loader_kwargs = dict(val_loader_kwargs, **dataloader_kwargs)
 
-        train_loader = data.DataLoader(dataset, **train_loader_kwargs)
-        val_loader = data.DataLoader(dataset, **val_loader_kwargs)
+        # train_loader = data.DataLoader(dataset, **train_loader_kwargs)
+        # val_loader = data.DataLoader(dataset, **val_loader_kwargs)
+
+        train_dataset=CustomDataset(theta[self.val_indices,:],x[self.val_indices,:],prior_masks[self.train_indices,:],training_batch_size)
+        val_dataset=CustomDataset(theta[self.val_indices,:],x[self.val_indices,:],prior_masks[self.val_indices,:],num_validation_examples)  
+        
+        train_loader = data.DataLoader(train_dataset)
+        val_loader = data.DataLoader(val_dataset)
 
         return train_loader, val_loader
 
@@ -571,6 +602,7 @@ def simulate_for_sbi(
     simulation_batch_size: int = 1,
     seed: Optional[int] = None,
     show_progress_bar: bool = True,
+    ray_on: bool = False,
 ) -> Tuple[Tensor, Tensor]:
     r"""Returns ($\theta, x$) pairs obtained from sampling the proposal and simulating.
 
@@ -609,6 +641,7 @@ def simulate_for_sbi(
         num_workers=num_workers,
         seed=seed,
         show_progress_bars=show_progress_bar,
+        ray_on=ray_on,
     )
 
     return theta, x

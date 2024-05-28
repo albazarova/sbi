@@ -354,6 +354,10 @@ class PosteriorEstimator(NeuralInference, ABC):
                     batch[2].to(self._device),
                 )
 
+
+                theta_batch, x_batch, masks_batch = torch.squeeze(theta_batch,dim=0),torch.squeeze(x_batch,dim=0),torch.squeeze(masks_batch,dim=0)
+
+
                 train_losses = self._loss(
                     theta_batch,
                     x_batch,
@@ -391,6 +395,10 @@ class PosteriorEstimator(NeuralInference, ABC):
                         batch[2].to(self._device),
                     )
                     # Take negative loss here to get validation log_prob.
+
+
+                    theta_batch, x_batch, masks_batch = torch.squeeze(theta_batch,dim=0),torch.squeeze(x_batch,dim=0),torch.squeeze(masks_batch,dim=0)
+
                     val_losses = self._loss(
                         theta_batch,
                         x_batch,
