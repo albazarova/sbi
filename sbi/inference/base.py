@@ -393,7 +393,7 @@ class NeuralInference(ABC):
         # train_loader = data.DataLoader(dataset, **train_loader_kwargs)
         # val_loader = data.DataLoader(dataset, **val_loader_kwargs)
 
-        train_dataset=CustomDataset(theta[self.val_indices,:],x[self.val_indices,:],prior_masks[self.train_indices,:],training_batch_size)
+        train_dataset=CustomDataset(theta[self.train_indices,:],x[self.train_indices,:],prior_masks[self.train_indices,:],training_batch_size)
         val_dataset=CustomDataset(theta[self.val_indices,:],x[self.val_indices,:],prior_masks[self.val_indices,:],num_validation_examples)  
         
         train_loader = data.DataLoader(train_dataset)
