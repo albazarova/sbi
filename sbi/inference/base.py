@@ -355,7 +355,7 @@ class NeuralInference(ABC):
         #
         theta, x, prior_masks = self.get_simulations(starting_round)
 
-        dataset = data.TensorDataset(theta, x, prior_masks)
+        #dataset = data.TensorDataset(theta, x, prior_masks)
 
         # Get total number of training examples.
         num_examples = theta.size(0)
